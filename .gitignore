@@ -13,7 +13,7 @@ venv/
 dist/
 build/
 results_atr_sweep.csv
-content/*.csv
+content/
 *.ex5
 .DS_Store
 .deep-copilot
