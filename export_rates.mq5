@@ -11,8 +11,13 @@
 //+------------------------------------------------------------------+
 //| INPUT PARAMETERS                                                 |
 //+------------------------------------------------------------------+
+<<<<<<< HEAD
 input string       InpSymbol           = "XAUUSD";           // Символ (оставить пусто = текущий)
 input int          InpStartYear        = 2024;               // Год начала (например, 2020)
+=======
+input string       InpSymbol           = "EURUSD";           // Символ (оставить пусто = текущий)
+input int          InpStartYear        = 2020;               // Год начала (например, 2020)
+>>>>>>> 290c8a1d1fe142aeb045d1c7975ca1c333fd1577
 input int          InpStartMonth       = 1;                  // Месяц начала (1-12)
 input int          InpStartDay         = 1;                  // День начала (1-31)
 input int          InpEndYear          = 2025;               // Год конца
