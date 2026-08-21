@@ -121,9 +121,9 @@ double GetAtr(ENUM_TIMEFRAMES tf, int period, int shift) {
 //+------------------------------------------------------------------+
 //| ОПРЕДЕЛЕНИЕ УРОВНЕЙ (Swing High/Low)                             |
 //+------------------------------------------------------------------+
-void RecalculateLevels() {
+bool RecalculateLevels() {
    if(TimeCurrent() - g_last_level_recalc < 3600)  // Пересчет каждый час
-      return;
+      return false;
    
    g_last_level_recalc = TimeCurrent();
    g_level_count = 0;
@@ -134,11 +134,11 @@ void RecalculateLevels() {
    int bars = CopyRates(_Symbol, PERIOD_H4, 0, lookback, rates_h4);
    
    if(bars < InpFractalDepth * 2 + 5)
-      return;
+      return false;
    
    double atr_h4 = GetAtr(PERIOD_H4, InpAtrPeriod, 0);
    if(atr_h4 <= 0)
-      return;
+      return false;
    
    double buffer_atr = InpLevelBufferATR * atr_h4;
    
@@ -204,6 +204,8 @@ void RecalculateLevels() {
          }
       }
    }
+   
+   return true;
 }
 
 bool GetNearestSupportLevel(double& out_price) {
@@ -369,8 +371,9 @@ int OnInit() {
    g_ema_slow_handle = iMA(_Symbol, PERIOD_H4, InpEmaSlow, 0, MODE_EMA, PRICE_CLOSE);
    g_adx_handle = iADX(_Symbol, PERIOD_H4, InpAdxPeriod);
    
-   // Расчёт уровней
-   RecalculateLevels();
+   // Расчёт уровней и отрисовка линий сразу при старте
+   if(RecalculateLevels())
+      VisualizeLevels();
    
    return INIT_SUCCEEDED;
 }
@@ -388,8 +391,8 @@ void OnTick() {
    static datetime last_h4_bar = 0;
    datetime current_h4_bar = iTime(_Symbol, PERIOD_H4, 0);
    if(current_h4_bar != last_h4_bar) {
-      RecalculateLevels();
-      VisualizeLevels();
+      if(RecalculateLevels())     // линия обновляется только если уровни реально пересчитаны
+         VisualizeLevels();
       last_h4_bar = current_h4_bar;
    }
    
