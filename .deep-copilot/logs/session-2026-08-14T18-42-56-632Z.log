@@ -1,0 +1,6 @@
+[2026-08-14T18:42:56.633Z] [INIT] Deep Copilot debug log started. file=c:\Users\Aser\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\MQL5\Experts\FV_Bounce\.deep-copilot\logs\session-2026-08-14T18-42-56-632Z.log
+[2026-08-14T18:42:56.633Z] [ACTIVATE] {"version":"0.43.1"}
+[2026-08-14T18:42:56.638Z] [PROVIDERS_LOADED] {"count":4,"ids":["anthropic","custom","deepseek","openai"]}
+[2026-08-14T18:42:56.639Z] [TERMINAL_MONITOR_STARTED] {}
+[2026-08-14T18:42:56.639Z] [STATUSBAR_REGISTERED] {"id":"deepseekAgent.statusBar"}
+[2026-08-14T18:42:56.660Z] [INLINE_COMPLETION_REGISTERED]
