@@ -28,21 +28,21 @@ enum ENUM_METHOD {
 //+------------------------------------------------------------------+
 input group             "=== УРОВНИ И ТРЕНД ==="
 input ENUM_METHOD      InpLevelMethod      = METHOD_SWING;        // Метод определения уровней
-input int              InpFractalDepth     = 2;                   // Глубина фрактала для swing high/low
-input double           InpLevelBufferATR   = 1.0;                 // Буфер кластеризации уровней, xATR H4
-input int              InpMinTouches       = 3;                   // Минимум касаний для "сильного" уровня
+input int              InpFractalDepth     = 1;                   // Глубина фрактала для swing high/low (оптимум Pass 1016)
+input double           InpLevelBufferATR   = 0.3;                 // Буфер кластеризации уровней, xATR H4 (оптимум Pass 1016)
+input int              InpMinTouches       = 4;                   // Минимум касаний для "сильного" уровня (оптимум Pass 1016)
 input int              InpLevelLookbackBar = 250;                 // Глубина поиска уровней (баров H4)
 input double           InpBreakBufferATR   = 0.5;                 // Буфер пробоя уровня
 
 input group             "=== ТРЕНД-ФИЛЬТР (EMA + ADX) ==="
-input int              InpEmaFast          = 50;                  // Период EMA (быстрая)
+input int              InpEmaFast          = 60;                  // Период EMA (быстрая) (оптимум Pass 1016)
 input int              InpEmaSlow          = 200;                 // Период EMA (медленная)
 input int              InpAdxPeriod        = 14;                  // Период ADX
-input int              InpAdxFlatThreshold = 20;                  // Порог ADX для флэта (< порога = флэт)
+input int              InpAdxFlatThreshold = 10;                  // Порог ADX для флэта (< порога = флэт) (оптимум Pass 1016)
 
 input group             "=== ВХОД И ПАТТЕРНЫ ==="
 input ENUM_TF_SELECT   InpEntryTF          = TF_M15;              // Таймфрейм входа (вход/паттерны)
-input double           InpEntryZoneATR     = 0.5;                 // Зона входа от уровня, xATR младший ТФ
+input double           InpEntryZoneATR     = 0.6;                 // Зона входа от уровня, xATR младший ТФ (оптимум Pass 1016)
 input bool             InpUsePinBar        = true;                // Использовать пин-бар
 input bool             InpUseEngulfing     = true;                // Использовать поглощение
 input bool             InpUseDoji          = true;                // Использовать доджи
@@ -50,8 +50,8 @@ input bool             InpUseDoji          = true;                // Испол�
 input group             "=== РИСК-МЕНЕДЖМЕНТ ==="
 input double           InpLot              = 0.1;                 // Объём сделки (лот)
 input int              InpAtrPeriod        = 14;                  // Период ATR для SL (младший ТФ)
-input double           InpSlAtrMult        = 2.0;                 // SL = xATR
-input double           InpRR               = 2.0;                 // Risk/Reward (TP = SL * RR)
+input double           InpSlAtrMult        = 2.0;                 // SL = xATR (оптимум Pass 1016)
+input double           InpRR               = 1.0;                 // Risk/Reward (TP = SL * RR) (оптимум Pass 1016)
 input bool             InpUseBreakEven     = false;               // Использовать безубыток (0 = выкл)
 input double           InpBEAtrMult        = 1.0;                 // Безубыток при движении на xATR
 
@@ -94,12 +94,14 @@ double NormalizeLot(double lot) {
    double max_lot  = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
    double step     = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
    
-   lot = MathMax(lot, min_lot);
+   lot = MathMin(lot, 0.1);   // Кэп на 0.1 лот
    lot = MathMin(lot, max_lot);
-   lot = MathMin(lot, 0.1);  // Кэп на 0.1 лот
    
    if(step > 0.0)
       lot = MathFloor(lot / step) * step;
+   
+   // Лот не может быть меньше минимального (иначе при шаге > лота получится 0)
+   lot = MathMax(lot, min_lot);
    
    return NormalizeDouble(lot, 2);
 }
@@ -130,7 +132,8 @@ bool RecalculateLevels() {
    
    // Получаем историю H4
    int lookback = InpLevelLookbackBar;
-   MqlRates rates_h4[500];
+   MqlRates rates_h4[];
+   ArrayResize(rates_h4, lookback);
    int bars = CopyRates(_Symbol, PERIOD_H4, 0, lookback, rates_h4);
    
    if(bars < InpFractalDepth * 2 + 5)
@@ -256,17 +259,20 @@ bool GetNearestResistanceLevel(double& out_price) {
 //| ОПРЕДЕЛЕНИЕ ТРЕНДА (EMA + ADX)                                   |
 //+------------------------------------------------------------------+
 int GetTrendDirection() {
-   // EMA fast vs EMA slow
-   double ema_fast = iMA(_Symbol, PERIOD_H4, InpEmaFast, 0, MODE_EMA, PRICE_CLOSE, 0);
-   double ema_slow = iMA(_Symbol, PERIOD_H4, InpEmaSlow, 0, MODE_EMA, PRICE_CLOSE, 0);
+   double ema_fast[1];
+   double ema_slow[1];
+   double adx[1];
    
-   // ADX
-   double adx = iADX(_Symbol, PERIOD_H4, InpAdxPeriod, 0);
+   // Читаем значения из созданных в OnInit handle'ов
+   if(CopyBuffer(g_ema_fast_handle, 0, 0, 1, ema_fast) != 1 ||
+      CopyBuffer(g_ema_slow_handle, 0, 0, 1, ema_slow) != 1 ||
+      CopyBuffer(g_adx_handle, 0, 0, 1, adx) != 1)
+      return 0;  // Данные ещё не готовы -> считаем флэтом
    
-   if(adx < InpAdxFlatThreshold)
+   if(adx[0] < InpAdxFlatThreshold)
       return 0;  // Флэт
    
-   if(ema_fast > ema_slow)
+   if(ema_fast[0] > ema_slow[0])
       return 1;   // Восходящий
    else
       return -1;  // Нисходящий
@@ -275,7 +281,7 @@ int GetTrendDirection() {
 //+------------------------------------------------------------------+
 //| ОПРЕДЕЛЕНИЕ ПАТТЕРНОВ                                             |
 //+------------------------------------------------------------------+
-bool DetectPinBar(double open_p, double high, double low, double close) {
+bool DetectPinBar(double open_p, double high, double low, double close, bool bullish) {
    double body = MathAbs(close - open_p);
    double range_size = high - low;
    
@@ -287,7 +293,10 @@ bool DetectPinBar(double open_p, double high, double low, double close) {
    
    // Тело мало, одна тень длинная
    if(body / range_size < 0.3) {
-      if(lower_shadow > upper_shadow * 2 || upper_shadow > lower_shadow * 2)
+      // Для лонга нужна длинная нижняя тень, для шорта - верхняя
+      if(bullish && lower_shadow > upper_shadow * 2)
+         return true;
+      if(!bullish && upper_shadow > lower_shadow * 2)
          return true;
    }
    
@@ -295,7 +304,14 @@ bool DetectPinBar(double open_p, double high, double low, double close) {
 }
 
 bool DetectEngulfing(double prev_open, double prev_close, double curr_open, 
-                     double curr_close, double curr_high, double curr_low) {
+                     double curr_close, double curr_high, double curr_low, bool bullish) {
+   // Бычье поглощение: текущая свеча бычья и поглощает предыдущую
+   // Медвежье поглощение: текущая свеча медвежья и поглощает предыдущую
+   if(bullish && curr_close <= curr_open)
+      return false;
+   if(!bullish && curr_close >= curr_open)
+      return false;
+   
    double prev_high = MathMax(prev_open, prev_close);
    double prev_low  = MathMin(prev_open, prev_close);
    double curr_high_body = MathMax(curr_open, curr_close);
@@ -328,10 +344,11 @@ void VisualizeLevels() {
       return;
    
    // Удаляем старые объекты
-   for(int i = ObjectsTotal(); i >= 0; i--) {
-      string obj_name = ObjectName(i);
+   int total = ObjectsTotal(0, -1, -1);
+   for(int i = total - 1; i >= 0; i--) {
+      string obj_name = ObjectName(0, i, -1, -1);
       if(StringFind(obj_name, "FVLR_") >= 0)
-         ObjectDelete(obj_name);
+         ObjectDelete(0, obj_name);
    }
    
    // Рисуем уровни
@@ -345,14 +362,11 @@ void VisualizeLevels() {
       if(g_levels[i].is_broken)
          line_color = clrGray;
       
-      ObjectCreate(obj_name, OBJ_HLINE, 0, TimeCurrent(), g_levels[i].price);
-      ObjectSetInteger(obj_name, OBJPROP_COLOR, line_color);
-      ObjectSetInteger(obj_name, OBJPROP_WIDTH, g_levels[i].touches >= 3 ? 2 : 1);
-      
-      // Подпись
-      string label_text = (g_levels[i].is_support ? "S" : "R") + 
-                          " | touches=" + (string)g_levels[i].touches;
-      ObjectSetString(obj_name, OBJPROP_TEXT, label_text);
+      ObjectCreate(0, obj_name, OBJ_HLINE, 0, TimeCurrent(), g_levels[i].price);
+      ObjectSetInteger(0, obj_name, OBJPROP_COLOR, line_color);
+      ObjectSetInteger(0, obj_name, OBJPROP_WIDTH, g_levels[i].touches >= 3 ? 2 : 1);
+      ObjectSetInteger(0, obj_name, OBJPROP_BACK, false);
+      ObjectSetInteger(0, obj_name, OBJPROP_SELECTABLE, false);
    }
 }
 
@@ -371,6 +385,16 @@ int OnInit() {
    g_ema_slow_handle = iMA(_Symbol, PERIOD_H4, InpEmaSlow, 0, MODE_EMA, PRICE_CLOSE);
    g_adx_handle = iADX(_Symbol, PERIOD_H4, InpAdxPeriod);
    
+   // Проверка валидности индикаторов
+   if(g_atr_handle_h4 == INVALID_HANDLE ||
+      g_atr_handle_entry == INVALID_HANDLE ||
+      g_ema_fast_handle == INVALID_HANDLE ||
+      g_ema_slow_handle == INVALID_HANDLE ||
+      g_adx_handle == INVALID_HANDLE) {
+      Print("Ошибка инициализации индикаторов");
+      return INIT_FAILED;
+   }
+   
    // Расчёт уровней и отрисовка линий сразу при старте
    if(RecalculateLevels())
       VisualizeLevels();
@@ -379,13 +403,26 @@ int OnInit() {
 }
 
 //+------------------------------------------------------------------+
+//| ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ                                          |
+//+------------------------------------------------------------------+
+bool HasOpenPosition() {
+   for(int i = PositionsTotal() - 1; i >= 0; i--) {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 &&
+         PositionGetString(POSITION_SYMBOL) == _Symbol &&
+         PositionGetInteger(POSITION_MAGIC) == InpMagic)
+         return true;
+   }
+   return false;
+}
+
+//+------------------------------------------------------------------+
 //| OnTick                                                            |
 //+------------------------------------------------------------------+
 void OnTick() {
-   // Уже есть открытая позиция
-   if(PositionSelect(_Symbol)) {
+   // Уже есть открытая позиция (с нашим магиком)
+   if(HasOpenPosition())
       return;
-   }
    
    // Пересчет уровней на каждом баре H4
    static datetime last_h4_bar = 0;
@@ -405,6 +442,14 @@ void OnTick() {
    if(atr_entry <= 0.0)
       return;
    
+   // Паттерны ищем на ЗАКРЫТОМ баре (shift 1), чтобы избежать перерисовки
+   double o  = iOpen(_Symbol, entry_tf, 1);
+   double h  = iHigh(_Symbol, entry_tf, 1);
+   double l  = iLow(_Symbol, entry_tf, 1);
+   double c  = iClose(_Symbol, entry_tf, 1);
+   double po = iOpen(_Symbol, entry_tf, 2);
+   double pc = iClose(_Symbol, entry_tf, 2);
+   
    // Проверяем лонги от поддержки
    double support_level = 0.0;
    if(GetNearestSupportLevel(support_level)) {
@@ -413,18 +458,9 @@ void OnTick() {
       if(MathAbs(current_price - support_level) <= zone_dist &&
          (trend == 1 || trend == 0)) {  // восходящий или флэт
          
-         // Проверяем паттерн на младшем ТФ
-         double o = iOpen(_Symbol, entry_tf, 0);
-         double h = iHigh(_Symbol, entry_tf, 0);
-         double l = iLow(_Symbol, entry_tf, 0);
-         double c = iClose(_Symbol, entry_tf, 0);
-         
-         double prev_o = iOpen(_Symbol, entry_tf, 1);
-         double prev_c = iClose(_Symbol, entry_tf, 1);
-         
-         bool pin_bar = InpUsePinBar && DetectPinBar(o, h, l, c);
-         bool engulfing = InpUseEngulfing && DetectEngulfing(prev_o, prev_c, o, c, h, l);
-         bool doji = InpUseDoji && DetectDoji(o, h, l, c);
+         bool pin_bar   = InpUsePinBar && DetectPinBar(o, h, l, c, true);
+         bool engulfing = InpUseEngulfing && DetectEngulfing(po, pc, o, c, h, l, true);
+         bool doji      = InpUseDoji && DetectDoji(o, h, l, c);
          
          if(pin_bar || engulfing || doji) {
             // Вход в лонг
@@ -448,17 +484,9 @@ void OnTick() {
       if(MathAbs(current_price - resistance_level) <= zone_dist &&
          (trend == -1 || trend == 0)) {  // нисходящий или флэт
          
-         double o = iOpen(_Symbol, entry_tf, 0);
-         double h = iHigh(_Symbol, entry_tf, 0);
-         double l = iLow(_Symbol, entry_tf, 0);
-         double c = iClose(_Symbol, entry_tf, 0);
-         
-         double prev_o = iOpen(_Symbol, entry_tf, 1);
-         double prev_c = iClose(_Symbol, entry_tf, 1);
-         
-         bool pin_bar = InpUsePinBar && DetectPinBar(o, h, l, c);
-         bool engulfing = InpUseEngulfing && DetectEngulfing(prev_o, prev_c, o, c, h, l);
-         bool doji = InpUseDoji && DetectDoji(o, h, l, c);
+         bool pin_bar   = InpUsePinBar && DetectPinBar(o, h, l, c, false);
+         bool engulfing = InpUseEngulfing && DetectEngulfing(po, pc, o, c, h, l, false);
+         bool doji      = InpUseDoji && DetectDoji(o, h, l, c);
          
          if(pin_bar || engulfing || doji) {
             // Вход в шорт
@@ -480,10 +508,11 @@ void OnTick() {
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason) {
    // Удаляем объекты с графика
-   for(int i = ObjectsTotal(); i >= 0; i--) {
-      string obj_name = ObjectName(i);
+   int total = ObjectsTotal(0, -1, -1);
+   for(int i = total - 1; i >= 0; i--) {
+      string obj_name = ObjectName(0, i, -1, -1);
       if(StringFind(obj_name, "FVLR_") >= 0)
-         ObjectDelete(obj_name);
+         ObjectDelete(0, obj_name);
    }
 }
 
