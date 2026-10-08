@@ -1,0 +1,8 @@
+backtesting>=0.6.4
+pandas
+numpy
+jupyter
+# только для notebooks/colab_rnn_WO_optune.ipynb (ставится в Colab автоматически):
+# torch
+# onnx, onnxruntime
+# scikit-learn

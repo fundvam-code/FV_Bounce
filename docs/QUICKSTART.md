@@ -26,12 +26,12 @@
 
 4. **Результат:**
    - Файл сохранится в папку `Files` терминала (путь будет в Журнале)
-   - Скопировать файл в `/workspaces/FV_Bounce/content/`
+   - Скопировать файл в `content/`
 
 5. **Повторить для других таймфреймов:** M5, M15, H4, D1
    - Просто откройте график каждого ТФ и повторите шаги 2-4
 
-**Подробнее:** [EXPORT_DATA_GUIDE.md](EXPORT_DATA_GUIDE.md)
+**Подробнее:** раздел «Данные» в [README](../README.md)
 
 ---
 
@@ -64,7 +64,7 @@ Time,Open,High,Low,Close,Volume
 ### 2.1 Открыть Jupyter notebook
 
 ```bash
-cd /workspaces/FV_Bounce
+cd FV_Bounce/notebooks
 jupyter notebook level_reversal_opt.ipynb
 ```
 
@@ -220,7 +220,7 @@ MT5 → Вид → Стратегический тестер (или Ctrl+R)
 
 ## 📞 Дополнительные ресурсы
 
-- **План архитектуры:** `PLAN_level_reversal_EA.md` (русский язык, детальное описание компонентов)
+- **План архитектуры:** [PLAN_level_reversal_EA.md](PLAN_level_reversal_EA.md) (русский язык, детальное описание компонентов)
 - **backtesting.py документация:** https://kernc.github.io/backtesting.py/
 - **MT5 справка по MQL5:** https://docs.mql4.com/
 
